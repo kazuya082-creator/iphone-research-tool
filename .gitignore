@@ -5,3 +5,6 @@ __pycache__/
 results/
 research.log
 .streamlit/secrets.toml
+lut/.selftest/
+lut/preview_*.png
+!lut/preview_rec709.png

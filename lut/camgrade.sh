@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # camgrade — iPhone 標準カメラで撮った素材にルック LUT を当てる
 #
-#   camgrade <入力ファイル> [neutral|cine|match] [prores|mp4]
+#   camgrade <入力ファイル> [neutral|cine|match|tech] [prores|mp4]
 #
 # Apple Log 2 素材用の `lutgrade` の標準カメラ版。
 # 入力の transfer を見て HDR(HLG) / SDR(Rec.709) を判定し、対応する LUT を選ぶ。
@@ -9,6 +9,7 @@
 #   neutral : HLG -> Rec.709 変換のみ（ルック無し）。SDR 入力では何もすることが無い
 #   cine    : Log パイプラインの「②控えめシネマティック」と同じグレード（既定）
 #   match   : cine + Log グレード素材と混ぜる用の寄せ込み（黒を上げ・ハイライトを丸め）
+#   tech    : Tech_AppleLog2.cube の 709 バージョン（log_look_to_709.py で生成する）
 #
 #   prores : 編集用マスター（ProRes 422 / 10bit）
 #   mp4    : 確認・納品用（H.264 / CRF18）※既定
@@ -30,7 +31,7 @@ LOOK="${2:-cine}"
 FMT="${3:-mp4}"
 
 [ -f "$SRC" ] || { echo "入力が見つかりません: $SRC" >&2; exit 1; }
-case "$LOOK" in neutral|cine|match) ;; *) echo "look は neutral / cine / match のいずれか: $LOOK" >&2; exit 1;; esac
+case "$LOOK" in neutral|cine|match|tech) ;; *) echo "look は neutral / cine / match / tech のいずれか: $LOOK" >&2; exit 1;; esac
 case "$FMT"  in prores|mp4) ;;        *) echo "format は prores / mp4 のいずれか: $FMT" >&2; exit 1;; esac
 
 TRC="$(ffprobe -v error -select_streams v:0 -show_entries stream=color_transfer \
@@ -59,12 +60,30 @@ esac
 case "$KIND/$LOOK" in
     rec709/cine)   LUT="iPhoneCam_Rec709_Cinematic_33.cube" ;;
     rec709/match)  LUT="iPhoneCam_Rec709_LogMatch_33.cube" ;;
+    rec709/tech)   LUT="Tech_Rec709_33.cube" ;;
+    hlg/tech)
+        echo "tech の HLG 版はまだ作っていません（現在 HDR 撮影はオフの運用）。" >&2
+        echo "HDR 素材に当てるなら一度 neutral で Rec.709 化してから tech を当ててください。" >&2
+        exit 1
+        ;;
     hlg/neutral)   LUT="iPhoneCam_HLG_to_Rec709_Neutral_33.cube" ;;
     hlg/cine)      LUT="iPhoneCam_HLG_to_Rec709_Cinematic_33.cube" ;;
     hlg/match)     LUT="iPhoneCam_HLG_to_Rec709_LogMatch_33.cube" ;;
 esac
 LUT_PATH="$LUT_DIR/$LUT"
-[ -f "$LUT_PATH" ] || { echo "LUT が見つかりません: $LUT_PATH（make_lut.py --all で生成できます）" >&2; exit 1; }
+if [ ! -f "$LUT_PATH" ]; then
+    echo "LUT が見つかりません: $LUT_PATH" >&2
+    if [ "$LOOK" = "tech" ]; then
+        echo "tech の 709 版は Tech_AppleLog2.cube から生成します:" >&2
+        echo "  python3 $SCRIPT_DIR/log_look_to_709.py \\" >&2
+        echo "    --neutral ~/Downloads/AppleLog2_to_Rec709_65_Grid.cube \\" >&2
+        echo "    --look    Tech_AppleLog2.cube \\" >&2
+        echo "    -o        $LUT_PATH" >&2
+    else
+        echo "make_lut.py --all で生成できます。" >&2
+    fi
+    exit 1
+fi
 
 DIR="$(cd "$(dirname "$SRC")" && pwd)"
 BASE="$(basename "$SRC")"

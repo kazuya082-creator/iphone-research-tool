@@ -56,13 +56,15 @@ ffmpeg -noautorotate -i IMG_1234.MOV \
 | HDR ビデオ OFF（`bt709` / 未タグ） | SDR | `iPhoneCam_Rec709_*` |
 | PQ（`smpte2084`） | 非対応 | 中止（標準カメラは通常 HLG。PQ が来たら別途対応が要る） |
 
-ルックは 3 択:
+ルックは 4 択:
 
 - **neutral** — HLG → Rec.709 の変換のみ。ルック無し。SDR 入力では何もすることが無いので拒否される
 - **cine** — Log パイプラインの「②控えめシネマティック」と**同一のグレード**
   （`eq=contrast=1.05:saturation=0.92` → `colorbalance=rs=-0.03:bs=0.05:rh=0.03:bh=-0.03`）
 - **match** — cine に加えて、標準カメラ特有の締まりすぎ・濃さを寝かせた版。
   Log グレード素材と同じ動画に混ぜるときはこちら
+- **tech** — `Tech_AppleLog2.cube` の 709 バージョン。`log_look_to_709.py` で生成する（下記）。
+  HDR 撮影はオフの運用なので HLG 版は用意していない
 
 ## Log 素材と並べたときの注意
 

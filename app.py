@@ -36,9 +36,9 @@ ds.inject(st)
 # ─────────────────────────────────────────────
 st.markdown(
     ds.header(
-        "📱 iPhone便利機能 バイラル動画リサーチ",
+        "iPhone便利機能 バイラル動画リサーチ",
         "YouTube Shorts / TikTok / Instagram Reels から、"
-        "再生数と動画時間の条件に合うバイラル動画を横断検索します。",
+        "再生数と動画時間の条件に合う動画を横断検索します。",
     ),
     unsafe_allow_html=True,
 )
@@ -47,9 +47,9 @@ st.markdown(
 # サイドバー: API設定
 # ─────────────────────────────────────────────
 with st.sidebar:
-    st.header("⚙️ 設定")
+    st.header("設定")
 
-    st.subheader("🔑 APIキー")
+    st.subheader("APIキー")
 
     # 環境変数から自動取得（Streamlit Cloud の Secrets に設定している場合）
     default_yt_key = os.environ.get("YOUTUBE_API_KEY", "")
@@ -84,7 +84,7 @@ with st.sidebar:
 
     st.divider()
 
-    st.subheader("🎯 検索条件")
+    st.subheader("検索条件")
 
     min_views = st.number_input(
         "最低再生数",
@@ -122,14 +122,14 @@ with st.sidebar:
 
     st.divider()
 
-    st.subheader("📋 対象プラットフォーム")
+    st.subheader("対象プラットフォーム")
     use_youtube = st.checkbox("YouTube Shorts", value=True)
     use_tiktok = st.checkbox("TikTok", value=True)
     use_instagram = st.checkbox("Instagram Reels", value=True)
 
     st.divider()
 
-    st.subheader("🔍 検索キーワード")
+    st.subheader("検索キーワード")
     custom_keywords = st.text_area(
         "キーワード（1行1つ）",
         value="\n".join([
@@ -146,7 +146,8 @@ with st.sidebar:
 # ─────────────────────────────────────────────
 # メイン: 実行ボタン
 # ─────────────────────────────────────────────
-if st.button("🔍 リサーチ開始", type="primary", use_container_width=True):
+col_run, _ = st.columns([1, 2])
+if col_run.button("リサーチ開始", type="primary", use_container_width=True):
     if not youtube_api_key and use_youtube:
         st.error("YouTube API Keyが入力されていません。サイドバーで設定してください。")
         st.stop()
@@ -227,82 +228,62 @@ if "results" in st.session_state:
     search_time = st.session_state.get("search_time", "")
 
     st.markdown(
-        ds.section_title(f"📊 結果（検索日時: {search_time}）"),
+        ds.section("検索結果", f"検索日時 {search_time}"),
         unsafe_allow_html=True,
     )
 
     if not results:
         st.warning("条件に合う動画が見つかりませんでした。検索条件を緩めてみてください。")
     else:
-        # サマリー指標
+        # サマリー
         platform_counts = {}
-        total_views = 0
         for r in results:
             platform_counts[r["platform"]] = platform_counts.get(r["platform"], 0) + 1
-            total_views += r["views"]
 
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("合計動画数", f"{len(results)} 件")
-        col2.metric("YouTube Shorts", f"{platform_counts.get('YouTube Shorts', 0)} 件")
-        col3.metric("TikTok", f"{platform_counts.get('TikTok', 0)} 件")
-        col4.metric("Instagram Reels", f"{platform_counts.get('Instagram Reels', 0)} 件")
-
-        # CSVダウンロード
-        csv_buffer = io.StringIO()
-        fieldnames = ["platform", "title", "url", "views", "duration_str",
-                      "channel", "published_at"]
-        writer = csv.DictWriter(csv_buffer, fieldnames=fieldnames, extrasaction="ignore")
-        writer.writeheader()
-        writer.writerows(results)
-
-        st.download_button(
-            label="📥 CSV でダウンロード",
-            data=csv_buffer.getvalue().encode("utf-8-sig"),
-            file_name=f"iphone_research_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
-            mime="text/csv",
-            use_container_width=True,
+        st.markdown(
+            ds.stat_tiles(len(results), platform_counts),
+            unsafe_allow_html=True,
         )
 
-        st.divider()
+        # 絞り込み（チップ）とCSVダウンロードを横並びに
+        col_filter, col_csv = st.columns([3, 1])
 
-        # フィルター
-        filter_platform = st.selectbox(
-            "プラットフォームで絞り込み",
-            options=["全て"] + list(platform_counts.keys()),
-        )
+        with col_filter:
+            filter_platform = st.radio(
+                "プラットフォームで絞り込み",
+                options=["全て"] + list(platform_counts.keys()),
+                horizontal=True,
+                label_visibility="collapsed",
+            )
 
         filtered = results if filter_platform == "全て" else [
             r for r in results if r["platform"] == filter_platform
         ]
 
-        # 結果リスト
-        for r in filtered:
-            col_thumb, col_info = st.columns([1, 4], gap="medium")
+        with col_csv:
+            csv_buffer = io.StringIO()
+            fieldnames = ["platform", "title", "url", "views", "duration_str",
+                          "channel", "published_at"]
+            writer = csv.DictWriter(csv_buffer, fieldnames=fieldnames,
+                                    extrasaction="ignore")
+            writer.writeheader()
+            writer.writerows(filtered)
 
-            with col_thumb:
-                if r.get("thumbnail"):
-                    st.image(r["thumbnail"], use_container_width=True)
+            st.download_button(
+                label="CSVでダウンロード",
+                data=csv_buffer.getvalue().encode("utf-8-sig"),
+                file_name=f"iphone_research_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                mime="text/csv",
+                use_container_width=True,
+            )
 
-            with col_info:
-                st.markdown(
-                    ds.result_card(
-                        platform=r["platform"],
-                        title=r["title"],
-                        views=r["views"],
-                        duration=r["duration_str"],
-                        channel=r["channel"],
-                        published_at=r["published_at"],
-                        url=r["url"],
-                    ),
-                    unsafe_allow_html=True,
-                )
-
-            st.write("")
+        # 結果カードのグリッド
+        st.markdown(ds.result_grid(filtered), unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────
 # フッター: APIキー取得ガイド
 # ─────────────────────────────────────────────
-with st.expander("❓ YouTube API Key の取得方法"):
+with st.expander("YouTube API Key の取得方法"):
     st.markdown("""
 1. [Google Cloud Console](https://console.cloud.google.com) にアクセス
 2. 新しいプロジェクトを作成
@@ -313,7 +294,7 @@ with st.expander("❓ YouTube API Key の取得方法"):
 **無料枠**: 1日10,000ユニット（通常のリサーチなら十分）
 """)
 
-with st.expander("❓ TikTok Session ID の取得方法"):
+with st.expander("TikTok Session ID の取得方法"):
     st.markdown("""
 1. Chrome で [TikTok](https://www.tiktok.com) にログイン
 2. F12 キーで開発者ツールを開く

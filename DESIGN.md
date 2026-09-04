@@ -11,9 +11,26 @@
 
 - `design_system.py` … トークン定義（色・余白・角丸・影・フォント）とCSS注入、UIコンポーネント
 - `.streamlit/config.toml` … Streamlit組み込みテーマ。`design_system.py` の `COLORS` と値を揃えること
-- `app.py` … `ds.inject(st)` を1回呼び、`ds.header()` / `ds.section_title()` / `ds.result_card()` を使う
+- `app.py` … `ds.inject(st)` を1回呼び、`ds.header()` / `ds.section()` /
+  `ds.stat_tiles()` / `ds.result_grid()` を使う
 
 色を変えるときは `design_system.py` の `COLORS` と `.streamlit/config.toml` の2箇所だけを直す。
+
+## 検索結果の見せ方
+
+動画を探す道具なので、サムネイルを主役にしたカードのグリッドにしている。
+
+- 1件＝1カード。サムネ・プラットフォームチップ・再生時間・タイトル・再生数を1枚にまとめる
+- カード全体が動画へのリンク。ホバーでエレベーションを1→2に上げ、サムネを少し拡大する
+- サムネの比率は 4:3 固定。YouTubeの4:3サムネはそのまま収まり、
+  縦型のリール・TikTokは中央でトリミングされる
+- タイトルは2行でクランプし、2行分の高さを常に確保してカード間の位置を揃える
+- 再生数は `format_views()` で「123.5万」表記にする。桁を読む手間をなくすため
+- グリッドは `repeat(auto-fill, minmax(240px, 1fr))` で画面幅に応じて列数が変わる
+- 絞り込みは `st.radio(horizontal=True)` をMD3のセグメンテッドボタン風のチップに見せている
+
+グリッド全体を1回の `st.markdown()` で描画している。Streamlitの `st.columns` で
+組むとカードの高さが揃わず、隙間の制御もできないため。
 
 ## 採用したルール
 
@@ -36,3 +53,6 @@
   カードのHTMLを編集するときはエスケープを外さないこと。
 - Streamlit内部のCSSクラス名（`st-emotion-cache-*`）は更新で変わるため使っていない。
   `data-testid` 属性のみを選択子にしている。
+- ただし絞り込みチップだけは、ラジオの丸を消すために
+  `label > div > div > div:first-child` というDOM構造への依存が残っている。
+  Streamlitを大きく上げたときにチップに丸が復活していたら、この選択子を見直すこと。

@@ -13,6 +13,8 @@ from datetime import datetime
 
 import streamlit as st
 
+import design_system as ds
+
 # ロガー設定
 logging.basicConfig(level=logging.INFO, stream=sys.stdout)
 logger = logging.getLogger(__name__)
@@ -25,41 +27,21 @@ st.set_page_config(
 )
 
 # ─────────────────────────────────────────────
-# スタイル
+# デザインシステム（デジタル庁 + Material Design 3）
 # ─────────────────────────────────────────────
-st.markdown("""
-<style>
-    .metric-card {
-        background: #f0f2f6;
-        border-radius: 8px;
-        padding: 16px;
-        text-align: center;
-    }
-    .result-card {
-        border: 1px solid #e0e0e0;
-        border-radius: 8px;
-        padding: 16px;
-        margin-bottom: 12px;
-    }
-    .platform-badge {
-        display: inline-block;
-        padding: 2px 10px;
-        border-radius: 12px;
-        font-size: 12px;
-        font-weight: bold;
-        color: white;
-    }
-    .youtube { background: #FF0000; }
-    .tiktok  { background: #000000; }
-    .instagram { background: #C13584; }
-</style>
-""", unsafe_allow_html=True)
+ds.inject(st)
 
 # ─────────────────────────────────────────────
 # ヘッダー
 # ─────────────────────────────────────────────
-st.title("📱 iPhone便利機能 バイラル動画リサーチ")
-st.caption("YouTube Shorts / TikTok / Instagram Reels から再生数50万以上・1分以上の動画を検索")
+st.markdown(
+    ds.header(
+        "📱 iPhone便利機能 バイラル動画リサーチ",
+        "YouTube Shorts / TikTok / Instagram Reels から、"
+        "再生数と動画時間の条件に合うバイラル動画を横断検索します。",
+    ),
+    unsafe_allow_html=True,
+)
 
 # ─────────────────────────────────────────────
 # サイドバー: API設定
@@ -244,8 +226,10 @@ if "results" in st.session_state:
     results = st.session_state["results"]
     search_time = st.session_state.get("search_time", "")
 
-    st.divider()
-    st.subheader(f"📊 結果 （検索日時: {search_time}）")
+    st.markdown(
+        ds.section_title(f"📊 結果（検索日時: {search_time}）"),
+        unsafe_allow_html=True,
+    )
 
     if not results:
         st.warning("条件に合う動画が見つかりませんでした。検索条件を緩めてみてください。")
@@ -293,37 +277,27 @@ if "results" in st.session_state:
 
         # 結果リスト
         for r in filtered:
-            platform = r["platform"]
-            badge_class = (
-                "youtube" if "YouTube" in platform
-                else "tiktok" if "TikTok" in platform
-                else "instagram"
-            )
-            views_str = f"{r['views']:,}"
+            col_thumb, col_info = st.columns([1, 4], gap="medium")
 
-            with st.container():
-                col_thumb, col_info = st.columns([1, 4])
+            with col_thumb:
+                if r.get("thumbnail"):
+                    st.image(r["thumbnail"], use_container_width=True)
 
-                with col_thumb:
-                    if r.get("thumbnail"):
-                        st.image(r["thumbnail"], width=160)
+            with col_info:
+                st.markdown(
+                    ds.result_card(
+                        platform=r["platform"],
+                        title=r["title"],
+                        views=r["views"],
+                        duration=r["duration_str"],
+                        channel=r["channel"],
+                        published_at=r["published_at"],
+                        url=r["url"],
+                    ),
+                    unsafe_allow_html=True,
+                )
 
-                with col_info:
-                    st.markdown(
-                        f'<span class="platform-badge {badge_class}">{platform}</span>',
-                        unsafe_allow_html=True,
-                    )
-                    st.markdown(f"**{r['title']}**")
-                    st.markdown(
-                        f"👁️ **{views_str}回** &nbsp;|&nbsp; "
-                        f"⏱️ {r['duration_str']} &nbsp;|&nbsp; "
-                        f"📺 {r['channel']} &nbsp;|&nbsp; "
-                        f"📅 {r['published_at']}",
-                        unsafe_allow_html=True,
-                    )
-                    st.markdown(f"🔗 [{r['url']}]({r['url']})")
-
-                st.divider()
+            st.write("")
 
 # ─────────────────────────────────────────────
 # フッター: APIキー取得ガイド
